@@ -1,0 +1,71 @@
+﻿<Window x:Class="PresenterTimerApp.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:PresenterTimerApp"
+        Title="Settings" Height="400" Width="600" WindowStartupLocation="CenterOwner"
+        Background="#1e1e1e" Foreground="White">
+    <Window.Resources>
+        <Style x:Key="SettingsSectionHeader" TargetType="TextBlock" BasedOn="{StaticResource SectionHeader}">
+            <Setter Property="Foreground" Value="#F0F0F0" />
+        </Style>
+    </Window.Resources>
+    <Grid Margin="10">
+        <TabControl Background="#2D2D2D">
+            <!-- Fonts Tab -->
+            <TabItem Header="Fonts">
+                <StackPanel Margin="10">
+                    <TextBlock Text="Timer Font:" Style="{StaticResource SettingsSectionHeader}" />
+                    <ComboBox x:Name="TimerFontComboBox" Width="200" Margin="0,5" SelectionChanged="FontComboBox_SelectionChanged" AutomationProperties.Name="Timer Font" />
+                    <TextBlock Text="Message Font:" Style="{StaticResource SettingsSectionHeader}" Margin="0,10,0,5" />
+                    <ComboBox x:Name="MessageFontComboBox" Width="200" Margin="0,5" SelectionChanged="FontComboBox_SelectionChanged" AutomationProperties.Name="Message Font" />
+                </StackPanel>
+            </TabItem>
+            <!-- Messages Tab -->
+            <TabItem Header="Messages">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <ListBox x:Name="MessagesListBox" Grid.Row="0" Margin="0,0,0,10" AutomationProperties.Name="Predefined Messages" />
+                    <StackPanel Grid.Row="1" Orientation="Horizontal">
+                        <TextBox x:Name="NewMessageTextBox" Width="200" Margin="0,0,10,0" AutomationProperties.Name="New Message" />
+                        <Button x:Name="AddMessageButton" Content="Add" Click="AddMessageButton_Click" ToolTip="Add new message" AutomationProperties.Name="Add Message" />
+                        <Button x:Name="EditMessageButton" Content="Edit" Click="EditMessageButton_Click" ToolTip="Edit selected message" AutomationProperties.Name="Edit Message" />
+                        <Button x:Name="DeleteMessageButton" Content="Delete" Click="DeleteMessageButton_Click" ToolTip="Delete selected message" AutomationProperties.Name="Delete Message" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+            <!-- App Settings Tab -->
+            <TabItem Header="App Settings">
+                <StackPanel Margin="10">
+                    <TextBlock Text="Timer Alerts (seconds):" Style="{StaticResource SettingsSectionHeader}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,5">
+                        <TextBlock Text="Yellow:" Width="50" VerticalAlignment="Center" />
+                        <Slider x:Name="YellowAlertSlider" Minimum="0" Maximum="600" Value="300" Width="150" ValueChanged="AlertSlider_ValueChanged" AutomationProperties.Name="Yellow Alert Threshold" />
+                        <TextBlock Text="{Binding Value, ElementName=YellowAlertSlider}" Width="50" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,5">
+                        <TextBlock Text="Red:" Width="50" VerticalAlignment="Center" />
+                        <Slider x:Name="RedAlertSlider" Minimum="0" Maximum="600" Value="60" Width="150" ValueChanged="AlertSlider_ValueChanged" AutomationProperties.Name="Red Alert Threshold" />
+                        <TextBlock Text="{Binding Value, ElementName=RedAlertSlider}" Width="50" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="Default Background Color:" Style="{StaticResource SettingsSectionHeader}" Margin="0,10,0,5" />
+                    <ComboBox x:Name="DefaultBackgroundColorPicker" Width="150" SelectedIndex="0" SelectionChanged="DefaultBackgroundColorPicker_SelectionChanged" AutomationProperties.Name="Default Background Color">
+                        <ComboBoxItem Content="Black" />
+                        <ComboBoxItem Content="DarkBlue" />
+                        <ComboBoxItem Content="Gray" />
+                    </ComboBox>
+                    <TextBlock Text="Max Image Size (MB):" Style="{StaticResource SettingsSectionHeader}" Margin="0,10,0,5" />
+                    <TextBox x:Name="MaxImageSizeTextBox" Width="100" Text="5" TextChanged="MaxImageSizeTextBox_TextChanged" AutomationProperties.Name="Max Image Size" />
+                    <CheckBox x:Name="EnableAnimationsCheckBox" Content="Enable Animations" Margin="0,10,0,0" IsChecked="True" Checked="EnableAnimationsCheckBox_Checked" Unchecked="EnableAnimationsCheckBox_Unchecked" AutomationProperties.Name="Enable Animations" />
+                    <Button x:Name="ClearAllButton" Content="Reset All Settings" Style="{StaticResource CriticalButton}" Margin="0,20,0,0" Click="ClearAllButton_Click" ToolTip="Reset all settings to default" AutomationProperties.Name="Reset All Settings" />
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Button x:Name="ExportSettingsButton" Content="Export Settings" Click="ExportSettingsButton_Click" ToolTip="Export settings to file" AutomationProperties.Name="Export Settings" />
+                        <Button x:Name="ImportSettingsButton" Content="Import Settings" Click="ImportSettingsButton_Click" ToolTip="Import settings from file" AutomationProperties.Name="Import Settings" />
+                    </StackPanel>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>
