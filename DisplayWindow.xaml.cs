@@ -84,9 +84,16 @@ namespace PresenterTimerApp
         public void SetTimerFont(System.Windows.Media.FontFamily fontFamily, double fontSize, System.Windows.Media.Brush color)
         {
             TimerText.FontFamily = fontFamily;
-            var maxFontSize = ActualWidth * 0.95;
-            var minFontSize = ActualWidth * 0.25;
-            TimerText.FontSize = Math.Max(minFontSize, Math.Min(maxFontSize, fontSize));
+            if (ActualWidth > 0)
+            {
+                var maxFontSize = ActualWidth * 0.95;
+                var minFontSize = ActualWidth * 0.25;
+                TimerText.FontSize = Math.Max(minFontSize, Math.Min(maxFontSize, fontSize));
+            }
+            else
+            {
+                TimerText.FontSize = fontSize;
+            }
             TimerText.Foreground = color;
             _originalTimerColor = color;
         }
