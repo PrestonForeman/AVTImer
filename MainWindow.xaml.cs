@@ -66,6 +66,7 @@ namespace PresenterTimerApp
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            SetTimeFromUI(); // Initialize timer display with default values
             UpdateTimerFont();
             UpdateMessageFont();
             _viewModel.StatusMessage = "Application started";
@@ -489,7 +490,7 @@ namespace PresenterTimerApp
         {
             try
             {
-                if (_displayWindow.ActualHeight <= 0 || LivePreviewGrid.ActualWidth <= 0) return;
+                if (_displayWindow.ActualHeight <= 0 || _displayWindow.ActualWidth <= 0 || LivePreviewGrid.ActualWidth <= 0) return;
                 var font = "Arial";
                 var size = MessageFontSizeSlider.Value;
                 var maxSize = Math.Min(size, _displayWindow.ActualHeight * 0.2);
