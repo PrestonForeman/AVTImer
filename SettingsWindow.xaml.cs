@@ -14,6 +14,12 @@ namespace PresenterTimerApp
         private readonly MainWindowViewModel _viewModel;
         private readonly string _dataFolder;
 
+        public SettingsWindow()
+        {
+            InitializeComponent();
+            // Design-time constructor
+        }
+
         public SettingsWindow(FileService fileService, string messageFilePath, MainWindowViewModel viewModel)
         {
             InitializeComponent();

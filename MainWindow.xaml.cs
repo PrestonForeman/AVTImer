@@ -82,6 +82,7 @@ namespace PresenterTimerApp
             PauseButton.Click += PauseButton_Click;
             ResetButton.Click += ResetButton_Click;
             SendMessageButton.Click += SendMessageButton_Click;
+            MessagePreviewButton.Click += MessagePreviewButton_Click;
             ClearMessageButton.Click += (object sender, RoutedEventArgs e) => ClearMessage();
             HideBackgroundButton.Click += HideBackgroundButton_Click;
             OpenDisplayButton.Click += (object sender, RoutedEventArgs e) => { if (!_displayWindow.IsVisible) _displayWindow.Show(); _viewModel.StatusMessage = "Display window opened"; };
@@ -201,6 +202,19 @@ namespace PresenterTimerApp
             _displayWindow.SetMessage(_viewModel.MessageText);
             TriggerAnimation(LiveMessagePreview, _displayWindow.MessageTextControl);
             _viewModel.StatusMessage = "Message displayed";
+        }
+
+        private void MessagePreviewButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_viewModel.MessageText))
+            {
+                System.Windows.MessageBox.Show("Please enter a message.", "Warning", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                _viewModel.StatusMessage = "Message not previewed: empty text";
+                return;
+            }
+            DraftMessagePreview.Text = _viewModel.MessageText;
+            TriggerAnimation(DraftMessagePreview);
+            _viewModel.StatusMessage = "Message previewed";
         }
 
         private void ClearMessage()
@@ -712,7 +726,7 @@ namespace PresenterTimerApp
 
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
         {
-            new SettingsWindow().ShowDialog();
+            new SettingsWindow(_fileService, _messageFilePath, _viewModel).ShowDialog();
             _viewModel.StatusMessage = "Settings opened";
         }
     }
