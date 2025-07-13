@@ -66,6 +66,7 @@ namespace PresenterTimerApp
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            SetTimeFromUI(); // Initialize timer display with default values
             UpdateTimerFont();
             UpdateMessageFont();
             _viewModel.StatusMessage = "Application started";
@@ -82,6 +83,7 @@ namespace PresenterTimerApp
             PauseButton.Click += PauseButton_Click;
             ResetButton.Click += ResetButton_Click;
             SendMessageButton.Click += SendMessageButton_Click;
+            MessagePreviewButton.Click += MessagePreviewButton_Click;
             ClearMessageButton.Click += (object sender, RoutedEventArgs e) => ClearMessage();
             HideBackgroundButton.Click += HideBackgroundButton_Click;
             OpenDisplayButton.Click += (object sender, RoutedEventArgs e) => { if (!_displayWindow.IsVisible) _displayWindow.Show(); _viewModel.StatusMessage = "Display window opened"; };
@@ -203,6 +205,19 @@ namespace PresenterTimerApp
             _viewModel.StatusMessage = "Message displayed";
         }
 
+        private void MessagePreviewButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_viewModel.MessageText))
+            {
+                System.Windows.MessageBox.Show("Please enter a message.", "Warning", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                _viewModel.StatusMessage = "Message not previewed: empty text";
+                return;
+            }
+            DraftMessagePreview.Text = _viewModel.MessageText;
+            TriggerAnimation(DraftMessagePreview);
+            _viewModel.StatusMessage = "Message previewed";
+        }
+
         private void ClearMessage()
         {
             _viewModel.MessageText = "";
@@ -292,7 +307,7 @@ namespace PresenterTimerApp
 
         private void RecentImagesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (RecentImagesComboBox.SelectedItem is string path && File.Exists(path))
+            if (RecentImagesComboBox.SelectedItem is ComboBoxItem item && item.Tag is string path && File.Exists(path))
             {
                 _imagePath = path;
                 ImagePreview1.Source = new BitmapImage(new Uri(path));
@@ -337,7 +352,7 @@ namespace PresenterTimerApp
             RecentImagesComboBox.Items.Clear();
             foreach (var path in _viewModel.RecentImages)
                 if (File.Exists(path))
-                    RecentImagesComboBox.Items.Add(Path.GetFileName(path));
+                    RecentImagesComboBox.Items.Add(new ComboBoxItem { Content = Path.GetFileName(path), Tag = path });
         }
 
         private void LoadFonts()
@@ -475,7 +490,7 @@ namespace PresenterTimerApp
         {
             try
             {
-                if (_displayWindow.ActualHeight <= 0 || LivePreviewGrid.ActualWidth <= 0) return;
+                if (_displayWindow.ActualHeight <= 0 || _displayWindow.ActualWidth <= 0 || LivePreviewGrid.ActualWidth <= 0) return;
                 var font = "Arial";
                 var size = MessageFontSizeSlider.Value;
                 var maxSize = Math.Min(size, _displayWindow.ActualHeight * 0.2);
@@ -712,7 +727,7 @@ namespace PresenterTimerApp
 
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
         {
-            new SettingsWindow().ShowDialog();
+            new SettingsWindow(_fileService, _messageFilePath, _viewModel).ShowDialog();
             _viewModel.StatusMessage = "Settings opened";
         }
     }

@@ -14,6 +14,12 @@ namespace PresenterTimerApp
         private readonly MainWindowViewModel _viewModel;
         private readonly string _dataFolder;
 
+        public SettingsWindow()
+        {
+            InitializeComponent();
+            // Design-time constructor
+        }
+
         public SettingsWindow(FileService fileService, string messageFilePath, MainWindowViewModel viewModel)
         {
             InitializeComponent();
@@ -33,12 +39,17 @@ namespace PresenterTimerApp
                 TimerFontComboBox.Items.Add(font.Source);
                 MessageFontComboBox.Items.Add(font.Source);
             }
-            TimerFontComboBox.SelectedItem = _viewModel.TimerFont ?? "Arial";
-            MessageFontComboBox.SelectedItem = _viewModel.MessageFont ?? "Arial";
+            if (_viewModel != null)
+            {
+                TimerFontComboBox.SelectedItem = _viewModel.TimerFont ?? "Arial";
+                MessageFontComboBox.SelectedItem = _viewModel.MessageFont ?? "Arial";
+            }
         }
 
         private async void LoadMessages()
         {
+            if (_fileService == null || _messageFilePath == null) return; // Handle design-time case
+            
             try
             {
                 var messages = await _fileService.LoadMessagesAsync(_messageFilePath);
@@ -52,6 +63,8 @@ namespace PresenterTimerApp
 
         private void LoadSettings()
         {
+            if (_viewModel == null) return; // Handle design-time case
+            
             YellowAlertSlider.Value = _viewModel.YellowAlertThreshold;
             RedAlertSlider.Value = _viewModel.RedAlertThreshold;
             MaxImageSizeTextBox.Text = (_viewModel.MaxImageSizeBytes / 1024 / 1024).ToString();
@@ -62,6 +75,8 @@ namespace PresenterTimerApp
 
         private async void FontComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (_viewModel == null) return; // Handle design-time case
+            
             _viewModel.TimerFont = TimerFontComboBox.SelectedItem?.ToString() ?? "Arial";
             _viewModel.MessageFont = MessageFontComboBox.SelectedItem?.ToString() ?? "Arial";
             await SaveSettingsAsync();
@@ -108,6 +123,8 @@ namespace PresenterTimerApp
 
         private async void AlertSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            if (_viewModel == null) return; // Handle design-time case
+            
             _viewModel.YellowAlertThreshold = (int)YellowAlertSlider.Value;
             _viewModel.RedAlertThreshold = (int)RedAlertSlider.Value;
             await SaveSettingsAsync();
@@ -115,12 +132,16 @@ namespace PresenterTimerApp
 
         private async void DefaultBackgroundColorPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (_viewModel == null) return; // Handle design-time case
+            
             _viewModel.PreviousBackgroundColor = ((ComboBoxItem)DefaultBackgroundColorPicker.SelectedItem)?.Content.ToString() ?? "Black";
             await SaveSettingsAsync();
         }
 
         private async void MaxImageSizeTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
+            if (_viewModel == null) return; // Handle design-time case
+            
             if (int.TryParse(MaxImageSizeTextBox.Text, out int mb))
             {
                 _viewModel.MaxImageSizeBytes = mb * 1024 * 1024;
@@ -130,12 +151,16 @@ namespace PresenterTimerApp
 
         private async void EnableAnimationsCheckBox_Checked(object sender, RoutedEventArgs e)
         {
+            if (_viewModel == null) return; // Handle design-time case
+            
             _viewModel.EnableAnimations = true;
             await SaveSettingsAsync();
         }
 
         private async void EnableAnimationsCheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
+            if (_viewModel == null) return; // Handle design-time case
+            
             _viewModel.EnableAnimations = false;
             await SaveSettingsAsync();
         }
@@ -198,9 +223,11 @@ namespace PresenterTimerApp
 
         private async Task SaveSettingsAsync()
         {
+            if (_fileService == null || _viewModel == null || _dataFolder == null) return; // Handle design-time case
+            
             try
             {
-                _fileService.BackupSettingsAsync(System.IO.Path.Combine(_dataFolder, "settings.json"), System.IO.Path.Combine(_dataFolder, "settings.bak"));
+                await _fileService.BackupSettingsAsync(System.IO.Path.Combine(_dataFolder, "settings.json"), System.IO.Path.Combine(_dataFolder, "settings.bak"));
                 var settings = new AppSettings
                 {
                     TimerFont = _viewModel.TimerFont,

@@ -41,11 +41,18 @@ namespace PresenterTimerApp
             }
         }
 
-        private void SaveMessages_Click(object sender, RoutedEventArgs e)
+        private async void SaveMessages_Click(object sender, RoutedEventArgs e)
         {
-            _fileService.SaveMessagesAsync(_messageFilePath, _currentMessages.ToArray()).Wait();
-            DialogResult = true;
-            Close();
+            try
+            {
+                await _fileService.SaveMessagesAsync(_messageFilePath, _currentMessages.ToArray());
+                DialogResult = true;
+                Close();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Error saving messages: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
         }
 
         private void Cancel_Click(object sender, RoutedEventArgs e)
