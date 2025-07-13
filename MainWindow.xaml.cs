@@ -306,7 +306,7 @@ namespace PresenterTimerApp
 
         private void RecentImagesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (RecentImagesComboBox.SelectedItem is string path && File.Exists(path))
+            if (RecentImagesComboBox.SelectedItem is ComboBoxItem item && item.Tag is string path && File.Exists(path))
             {
                 _imagePath = path;
                 ImagePreview1.Source = new BitmapImage(new Uri(path));
@@ -351,7 +351,7 @@ namespace PresenterTimerApp
             RecentImagesComboBox.Items.Clear();
             foreach (var path in _viewModel.RecentImages)
                 if (File.Exists(path))
-                    RecentImagesComboBox.Items.Add(Path.GetFileName(path));
+                    RecentImagesComboBox.Items.Add(new ComboBoxItem { Content = Path.GetFileName(path), Tag = path });
         }
 
         private void LoadFonts()

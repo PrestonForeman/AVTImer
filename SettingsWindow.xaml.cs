@@ -39,12 +39,17 @@ namespace PresenterTimerApp
                 TimerFontComboBox.Items.Add(font.Source);
                 MessageFontComboBox.Items.Add(font.Source);
             }
-            TimerFontComboBox.SelectedItem = _viewModel.TimerFont ?? "Arial";
-            MessageFontComboBox.SelectedItem = _viewModel.MessageFont ?? "Arial";
+            if (_viewModel != null)
+            {
+                TimerFontComboBox.SelectedItem = _viewModel.TimerFont ?? "Arial";
+                MessageFontComboBox.SelectedItem = _viewModel.MessageFont ?? "Arial";
+            }
         }
 
         private async void LoadMessages()
         {
+            if (_fileService == null || _messageFilePath == null) return; // Handle design-time case
+            
             try
             {
                 var messages = await _fileService.LoadMessagesAsync(_messageFilePath);
@@ -58,6 +63,8 @@ namespace PresenterTimerApp
 
         private void LoadSettings()
         {
+            if (_viewModel == null) return; // Handle design-time case
+            
             YellowAlertSlider.Value = _viewModel.YellowAlertThreshold;
             RedAlertSlider.Value = _viewModel.RedAlertThreshold;
             MaxImageSizeTextBox.Text = (_viewModel.MaxImageSizeBytes / 1024 / 1024).ToString();
@@ -68,6 +75,8 @@ namespace PresenterTimerApp
 
         private async void FontComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (_viewModel == null) return; // Handle design-time case
+            
             _viewModel.TimerFont = TimerFontComboBox.SelectedItem?.ToString() ?? "Arial";
             _viewModel.MessageFont = MessageFontComboBox.SelectedItem?.ToString() ?? "Arial";
             await SaveSettingsAsync();
@@ -204,9 +213,11 @@ namespace PresenterTimerApp
 
         private async Task SaveSettingsAsync()
         {
+            if (_fileService == null || _viewModel == null || _dataFolder == null) return; // Handle design-time case
+            
             try
             {
-                _fileService.BackupSettingsAsync(System.IO.Path.Combine(_dataFolder, "settings.json"), System.IO.Path.Combine(_dataFolder, "settings.bak"));
+                await _fileService.BackupSettingsAsync(System.IO.Path.Combine(_dataFolder, "settings.json"), System.IO.Path.Combine(_dataFolder, "settings.bak"));
                 var settings = new AppSettings
                 {
                     TimerFont = _viewModel.TimerFont,
