@@ -43,6 +43,7 @@ namespace PresenterTimerApp
 
             InitializeComponent();
             _viewModel = new MainWindowViewModel();
+            _viewModel.PropertyChanged += ViewModel_PropertyChanged;
             DataContext = _viewModel;
 
             _displayWindow = new DisplayWindow();
@@ -62,6 +63,15 @@ namespace PresenterTimerApp
             MoveDisplayToSecondaryMonitor();
             _displayWindow.Show();
             ImagePreview1.Drop += Image_Drop;
+        }
+
+        private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(MainWindowViewModel.MessageText))
+            {
+                // Update only the draft preview, not the live preview
+                DraftMessagePreview.Text = _viewModel.MessageText;
+            }
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -92,8 +102,12 @@ namespace PresenterTimerApp
             MonitorComboBox.SelectionChanged += MonitorComboBox_SelectionChanged;
             PredefinedMessageComboBox.SelectionChanged += (object sender, SelectionChangedEventArgs e) =>
             {
-                if (PredefinedMessageComboBox.SelectedItem is ComboBoxItem item)
+                if (PredefinedMessageComboBox.SelectedItem is ComboBoxItem item && item.Content != null)
+                {
                     _viewModel.MessageText = item.Content.ToString();
+                    // Update only the draft preview, not the live preview
+                    DraftMessagePreview.Text = _viewModel.MessageText;
+                }
             };
             TimerFontSizeSlider.ValueChanged += (object sender, RoutedPropertyChangedEventArgs<double> e) => _fontUpdateTimer.Start();
             TimerColorComboBox.SelectionChanged += (object sender, SelectionChangedEventArgs e) => UpdateTimerColor();
@@ -104,7 +118,14 @@ namespace PresenterTimerApp
             LoadImage1.Click += LoadImage_Click;
             PreviewImage1.Click += PreviewImage_Click;
             TakeLiveImage1.Click += TakeLiveImage_Click;
+            DeleteImageButton.Click += DeleteImageButton_Click;
             RecentImagesComboBox.SelectionChanged += RecentImagesComboBox_SelectionChanged;
+            SettingsButton.Click += SettingsButton_Click;
+            
+            // Add handlers for message management buttons
+            AddMessageButton.Click += AddMessageButton_Click;
+            EditMessageButton.Click += EditMessageButton_Click;
+            DeleteMessageButton.Click += DeleteMessageButton_Click;
         }
 
         private void Image_Drop(object sender, System.Windows.DragEventArgs e)
@@ -205,11 +226,11 @@ namespace PresenterTimerApp
 
         private void ClearMessage()
         {
-            _viewModel.MessageText = "";
+            // Don't clear _viewModel.MessageText anymore to keep it in the text box
             LiveMessagePreview.Text = "";
             _displayWindow.SetMessage("");
             TriggerAnimation(LiveMessagePreview, _displayWindow.MessageTextControl);
-            _viewModel.StatusMessage = "Message cleared";
+            _viewModel.StatusMessage = "Message hidden";
         }
 
         private void HideBackgroundButton_Click(object sender, RoutedEventArgs e)
@@ -292,12 +313,18 @@ namespace PresenterTimerApp
 
         private void RecentImagesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (RecentImagesComboBox.SelectedItem is string path && File.Exists(path))
+            if (RecentImagesComboBox.SelectedItem != null)
             {
-                _imagePath = path;
-                ImagePreview1.Source = new BitmapImage(new Uri(path));
-                _viewModel.StatusMessage = $"Selected recent image: {Path.GetFileName(path)}";
-                SaveImagePathAsync();
+                string selectedFileName = RecentImagesComboBox.SelectedItem.ToString();
+                string fullPath = _viewModel.RecentImages.FirstOrDefault(p => Path.GetFileName(p) == selectedFileName);
+                
+                if (!string.IsNullOrEmpty(fullPath) && File.Exists(fullPath))
+                {
+                    _imagePath = fullPath;
+                    ImagePreview1.Source = new BitmapImage(new Uri(fullPath));
+                    _viewModel.StatusMessage = $"Selected recent image: {Path.GetFileName(fullPath)}";
+                    SaveImagePathAsync();
+                }
             }
         }
 
@@ -336,8 +363,14 @@ namespace PresenterTimerApp
         {
             RecentImagesComboBox.Items.Clear();
             foreach (var path in _viewModel.RecentImages)
+            {
                 if (File.Exists(path))
-                    RecentImagesComboBox.Items.Add(Path.GetFileName(path));
+                {
+                    // Store the filename for display but use Tag to store the full path
+                    string fileName = Path.GetFileName(path);
+                    RecentImagesComboBox.Items.Add(fileName);
+                }
+            }
         }
 
         private void LoadFonts()
@@ -377,9 +410,9 @@ namespace PresenterTimerApp
 
         private void SetTimeFromUI()
         {
-            int h = int.Parse(((ComboBoxItem)HoursComboBox.SelectedItem)?.Content.ToString() ?? "0");
-            int m = int.Parse(((ComboBoxItem)MinutesComboBox.SelectedItem)?.Content.ToString() ?? "0");
-            int s = int.Parse(((ComboBoxItem)SecondsComboBox.SelectedItem)?.Content.ToString() ?? "0");
+            int h = int.Parse(((ComboBoxItem)HoursComboBox.SelectedItem)?.Content?.ToString() ?? "0");
+            int m = int.Parse(((ComboBoxItem)MinutesComboBox.SelectedItem)?.Content?.ToString() ?? "0");
+            int s = int.Parse(((ComboBoxItem)SecondsComboBox.SelectedItem)?.Content?.ToString() ?? "0");
             _viewModel.RemainingTime = new TimeSpan(h, m, s);
             UpdateTimeDisplays();
         }
@@ -442,20 +475,51 @@ namespace PresenterTimerApp
             try
             {
                 if (_displayWindow.ActualWidth <= 0 || LivePreviewGrid.ActualWidth <= 0) return;
+
                 var font = "Arial";
                 var sizePercentage = TimerFontSizeSlider.Value / 100.0;
                 var displayWidth = _displayWindow.ActualWidth;
+                var displayHeight = _displayWindow.ActualHeight;
                 var previewWidth = LivePreviewGrid.ActualWidth;
-                var maxDisplaySize = displayWidth * 0.95;
-                var minDisplaySize = displayWidth * 0.25;
-                var baseSize = Math.Max(minDisplaySize, Math.Min(maxDisplaySize, displayWidth * sizePercentage));
+
+                // Get current time text
+                string timeText = _viewModel.RemainingTime.ToString("hh\\:mm\\:ss");
+
+                // Calculate maximum allowed size (95% of display width)
+                double maxAllowedWidth = displayWidth * 0.95;
+
+                // Start with a base size determined by the slider
+                double baseSize = displayWidth * sizePercentage * 0.25; // 0.25 is a scaling factor
+
+                // Ensure the text fits within the maximum width
+                var testFormatting = new FormattedText(
+    timeText,
+    CultureInfo.CurrentCulture,
+    System.Windows.FlowDirection.LeftToRight, // Correctly qualified with the type name
+    new Typeface(new System.Windows.Media.FontFamily(font), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+    baseSize,
+    System.Windows.Media.Brushes.Black, // Specify the namespace explicitly
+    VisualTreeHelper.GetDpi(this).PixelsPerDip);
+
+                // If text is wider than allowed max, scale it down
+                if (testFormatting.Width > maxAllowedWidth)
+                {
+                    baseSize = baseSize * (maxAllowedWidth / testFormatting.Width);
+                }
+
+                // Apply a minimum size
+                baseSize = Math.Max(10, baseSize);
+
+                // Scale for the preview
                 var scaleFactor = previewWidth / displayWidth;
                 var previewSize = baseSize * scaleFactor;
 
+                // Get color
                 var colorName = ((ComboBoxItem)TimerColorComboBox.SelectedItem)?.Content.ToString() ?? "White";
                 var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colorName);
                 var brush = new SolidColorBrush(color);
 
+                // Apply the font settings
                 _displayWindow.SetTimerFont(new System.Windows.Media.FontFamily(font), baseSize, brush);
                 LiveTimerPreview.FontFamily = new System.Windows.Media.FontFamily(font);
                 DraftTimerPreview.FontFamily = new System.Windows.Media.FontFamily(font);
@@ -477,22 +541,52 @@ namespace PresenterTimerApp
             {
                 if (_displayWindow.ActualHeight <= 0 || LivePreviewGrid.ActualWidth <= 0) return;
                 var font = "Arial";
-                var size = MessageFontSizeSlider.Value;
-                var maxSize = Math.Min(size, _displayWindow.ActualHeight * 0.2);
+                var sliderValue = MessageFontSizeSlider.Value;
+                
+                // Calculate percentage based on slider position
+                double percentage;
+                double minSliderValue = 20;  // Min slider value
+                double maxSliderValue = 100; // Max slider value
+                double defaultValue = 40;    // Default/middle value
+                
+                if (sliderValue <= defaultValue)
+                {
+                    // Linear mapping from min to default (40% to 75%)
+                    percentage = 40.0 + (sliderValue - minSliderValue) * (75.0 - 40.0) / (defaultValue - minSliderValue);
+                }
+                else
+                {
+                    // Linear mapping from default to max (75% to 95%)
+                    percentage = 75.0 + (sliderValue - defaultValue) * (95.0 - 75.0) / (maxSliderValue - defaultValue);
+                }
+                
+                // Calculate font size based on display width and percentage
+                double displayWidth = _displayWindow.ActualWidth;
+                double fontSize = displayWidth * (percentage / 100.0) * 0.1; // Scale factor for appropriate text size
+                
                 var colorName = ((ComboBoxItem)MessageColorComboBox.SelectedItem)?.Content.ToString() ?? "White";
                 var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colorName);
                 var brush = new SolidColorBrush(color);
 
-                _displayWindow.SetMessageFont(new System.Windows.Media.FontFamily(font), maxSize, brush);
+                _displayWindow.SetMessageFont(new System.Windows.Media.FontFamily(font), fontSize, brush);
+                
+                // Set font properties for preview elements
                 LiveMessagePreview.FontFamily = new System.Windows.Media.FontFamily(font);
                 DraftMessagePreview.FontFamily = new System.Windows.Media.FontFamily(font);
-                LiveMessagePreview.FontSize = maxSize * (LivePreviewGrid.ActualWidth / _displayWindow.ActualWidth);
-                DraftMessagePreview.FontSize = maxSize * (DraftPreviewGrid.ActualWidth / _displayWindow.ActualWidth);
+                
+                // Scale font size for preview panels based on their width relative to display window
+                double livePreviewScale = LivePreviewGrid.ActualWidth / displayWidth;
+                double draftPreviewScale = DraftPreviewGrid.ActualWidth / displayWidth;
+                
+                LiveMessagePreview.FontSize = fontSize * livePreviewScale;
+                DraftMessagePreview.FontSize = fontSize * draftPreviewScale;
+                
                 LiveMessagePreview.Foreground = brush;
                 DraftMessagePreview.Foreground = brush;
-
-                if (!string.IsNullOrEmpty(_viewModel.MessageText))
-                    TriggerAnimation(LiveMessagePreview, DraftMessagePreview);
+                
+                // Ensure text wrapping is enabled
+                LiveMessagePreview.TextWrapping = TextWrapping.Wrap;
+                DraftMessagePreview.TextWrapping = TextWrapping.Wrap;
             }
             catch (Exception ex)
             {
@@ -712,8 +806,186 @@ namespace PresenterTimerApp
 
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
         {
-            new SettingsWindow().ShowDialog();
-            _viewModel.StatusMessage = "Settings opened";
+            try
+            {
+                // Create the settings window with the correct dependencies
+                var settingsWindow = new SettingsWindow(_fileService, _messageFilePath, _viewModel)
+                {
+                    // Set the owner to this window to ensure proper modal behavior and center position
+                    Owner = this
+                };
+
+                // Show as dialog to ensure it blocks interaction with main window
+                settingsWindow.ShowDialog();
+
+                // Reload messages after settings are closed
+                LoadMessagesToComboBox();
+                _viewModel.StatusMessage = "Settings closed";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogErrorAsync($"Settings window error: {ex.Message}\n{ex.StackTrace}");
+                _viewModel.StatusMessage = $"Error opening settings: {ex.Message}";
+            }
+        }
+
+        private void DeleteImageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (RecentImagesComboBox.SelectedItem != null)
+            {
+                // Get the filename from the selected item
+                string selectedImageName = RecentImagesComboBox.SelectedItem.ToString();
+                
+                // Find the full path in the RecentImages collection
+                string fullPath = _viewModel.RecentImages.FirstOrDefault(p => Path.GetFileName(p) == selectedImageName);
+                
+                if (!string.IsNullOrEmpty(fullPath))
+                {
+                    // Remove the image from the recent images collection
+                    _viewModel.RecentImages.Remove(fullPath);
+                    
+                    // If the deleted image was the current image, clear it
+                    if (_imagePath == fullPath)
+                    {
+                        _imagePath = "";
+                        ImagePreview1.Source = null;
+                    }
+                    
+                    // Refresh the ComboBox
+                    PopulateRecentImages();
+                    
+                    // Save changes to settings
+                    SaveSettingsAsync();
+                    
+                    _viewModel.StatusMessage = $"Removed image: {selectedImageName}";
+                }
+            }
+        }
+
+        private async void AddMessageButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new InputDialog("Add Message", "Enter a new message:", "")
+            {
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() == true && !string.IsNullOrWhiteSpace(dialog.ResponseText))
+            {
+                try
+                {
+                    var messages = await _fileService.LoadMessagesAsync(_messageFilePath);
+                    var messagesList = messages.ToList();
+                    messagesList.Add(dialog.ResponseText);
+                    
+                    await _fileService.SaveMessagesAsync(_messageFilePath, messagesList.ToArray());
+                    LoadMessagesToComboBox();
+                    
+                    // Select the newly added message
+                    for (int i = 0; i < PredefinedMessageComboBox.Items.Count; i++)
+                    {
+                        if (PredefinedMessageComboBox.Items[i] is ComboBoxItem item && 
+                            item.Content.ToString() == dialog.ResponseText)
+                        {
+                            PredefinedMessageComboBox.SelectedIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    _viewModel.StatusMessage = "Message added successfully";
+                }
+                catch (Exception ex)
+                {
+                    _ = _logger.LogErrorAsync($"Error adding message: {ex.Message}\n{ex.StackTrace}");
+                    _viewModel.StatusMessage = "Error adding message";
+                }
+            }
+        }
+
+        private async void EditMessageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (PredefinedMessageComboBox.SelectedItem is ComboBoxItem selectedItem)
+            {
+                string currentMessage = selectedItem.Content.ToString();
+                
+                var dialog = new InputDialog("Edit Message", "Edit the selected message:", currentMessage)
+                {
+                    Owner = this
+                };
+
+                if (dialog.ShowDialog() == true && !string.IsNullOrWhiteSpace(dialog.ResponseText))
+                {
+                    try
+                    {
+                        var messages = await _fileService.LoadMessagesAsync(_messageFilePath);
+                        var messagesList = messages.ToList();
+                        int index = messagesList.IndexOf(currentMessage);
+                        
+                        if (index >= 0)
+                        {
+                            messagesList[index] = dialog.ResponseText;
+                            await _fileService.SaveMessagesAsync(_messageFilePath, messagesList.ToArray());
+                            
+                            int selectedIndex = PredefinedMessageComboBox.SelectedIndex;
+                            LoadMessagesToComboBox();
+                            
+                            // Try to keep the selection
+                            if (selectedIndex >= 0 && selectedIndex < PredefinedMessageComboBox.Items.Count)
+                            {
+                                PredefinedMessageComboBox.SelectedIndex = selectedIndex;
+                            }
+                            
+                            _viewModel.StatusMessage = "Message updated successfully";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _ = _logger.LogErrorAsync($"Error updating message: {ex.Message}\n{ex.StackTrace}");
+                        _viewModel.StatusMessage = "Error updating message";
+                    }
+                }
+            }
+            else
+            {
+                System.Windows.MessageBox.Show("Please select a message to edit.", "No Message Selected", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private async void DeleteMessageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (PredefinedMessageComboBox.SelectedItem is ComboBoxItem selectedItem)
+            {
+                string messageToDelete = selectedItem.Content.ToString();
+                
+                var result = System.Windows.MessageBox.Show(
+                    $"Are you sure you want to delete this message?\n\n\"{messageToDelete}\"", 
+                    "Confirm Delete", 
+                    MessageBoxButton.YesNo, 
+                    MessageBoxImage.Question);
+                
+                if (result == MessageBoxResult.Yes)
+                {
+                    try
+                    {
+                        var messages = await _fileService.LoadMessagesAsync(_messageFilePath);
+                        var messagesList = messages.ToList();
+                        messagesList.Remove(messageToDelete);
+                        
+                        await _fileService.SaveMessagesAsync(_messageFilePath, messagesList.ToArray());
+                        LoadMessagesToComboBox();
+                        
+                        _viewModel.StatusMessage = "Message deleted successfully";
+                    }
+                    catch (Exception ex)
+                    {
+                        _ = _logger.LogErrorAsync($"Error deleting message: {ex.Message}\n{ex.StackTrace}");
+                        _viewModel.StatusMessage = "Error deleting message";
+                    }
+                }
+            }
+            else
+            {
+                System.Windows.MessageBox.Show("Please select a message to delete.", "No Message Selected", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
     }
 }

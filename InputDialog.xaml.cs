@@ -5,18 +5,29 @@ namespace PresenterTimerApp
     public partial class InputDialog : Window
     {
         public string ResponseText { get; private set; }
+        public string WindowTitle { get; set; }
+        public string Message { get; set; }
+        public string DefaultValue { get; set; }
 
-        public InputDialog(string title, string prompt)
+        public InputDialog(string title, string message, string defaultValue = "")
         {
             InitializeComponent();
-            Title = title;
-            PromptText.Text = prompt;
-            InputBox.Focus();
+            WindowTitle = title;
+            Message = message;
+            DefaultValue = defaultValue;
+            DataContext = this;
+            
+            Loaded += (s, e) => 
+            {
+                InputTextBox.Text = DefaultValue;
+                InputTextBox.SelectAll();
+                InputTextBox.Focus();
+            };
         }
 
         private void OkButton_Click(object sender, RoutedEventArgs e)
         {
-            ResponseText = InputBox.Text;
+            ResponseText = InputTextBox.Text;
             DialogResult = true;
             Close();
         }

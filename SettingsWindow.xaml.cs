@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace PresenterTimerApp
 {
@@ -16,14 +17,23 @@ namespace PresenterTimerApp
 
         public SettingsWindow(FileService fileService, string messageFilePath, MainWindowViewModel viewModel)
         {
-            InitializeComponent();
-            _fileService = fileService;
-            _messageFilePath = messageFilePath;
-            _viewModel = viewModel;
-            _dataFolder = System.IO.Path.Combine(AppContext.BaseDirectory, "Data");
-            LoadFonts();
-            LoadMessages();
-            LoadSettings();
+            try
+            {
+                InitializeComponent();
+                _fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
+                _messageFilePath = messageFilePath ?? throw new ArgumentNullException(nameof(messageFilePath));
+                _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+                _dataFolder = System.IO.Path.Combine(AppContext.BaseDirectory, "Data");
+                
+                LoadFonts();
+                LoadMessages();
+                LoadSettings();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Error initializing settings window: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                throw; // Rethrow to ensure the calling code knows about the issue
+            }
         }
 
         private void LoadFonts()
@@ -52,12 +62,25 @@ namespace PresenterTimerApp
 
         private void LoadSettings()
         {
-            YellowAlertSlider.Value = _viewModel.YellowAlertThreshold;
-            RedAlertSlider.Value = _viewModel.RedAlertThreshold;
-            MaxImageSizeTextBox.Text = (_viewModel.MaxImageSizeBytes / 1024 / 1024).ToString();
-            EnableAnimationsCheckBox.IsChecked = _viewModel.EnableAnimations;
-            DefaultBackgroundColorPicker.SelectedItem = DefaultBackgroundColorPicker.Items.Cast<ComboBoxItem>()
-                .FirstOrDefault(i => i.Content.ToString() == _viewModel.PreviousBackgroundColor) ?? DefaultBackgroundColorPicker.Items[0];
+            try
+            {
+                YellowAlertSlider.Value = _viewModel.YellowAlertThreshold;
+                RedAlertSlider.Value = _viewModel.RedAlertThreshold;
+                MaxImageSizeTextBox.Text = (_viewModel.MaxImageSizeBytes / 1024 / 1024).ToString();
+                EnableAnimationsCheckBox.IsChecked = _viewModel.EnableAnimations;
+
+                // Safe way to handle the selected item if the collection is null or empty
+                if (DefaultBackgroundColorPicker.Items.Count > 0)
+                {
+                    DefaultBackgroundColorPicker.SelectedItem = DefaultBackgroundColorPicker.Items.Cast<ComboBoxItem>()
+                        .FirstOrDefault(i => i.Content.ToString() == _viewModel.PreviousBackgroundColor) ?? 
+                        DefaultBackgroundColorPicker.Items[0];
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Error loading settings: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
         }
 
         private async void FontComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -200,7 +223,7 @@ namespace PresenterTimerApp
         {
             try
             {
-                _fileService.BackupSettingsAsync(System.IO.Path.Combine(_dataFolder, "settings.json"), System.IO.Path.Combine(_dataFolder, "settings.bak"));
+                await _fileService.BackupSettingsAsync(System.IO.Path.Combine(_dataFolder, "settings.json"), System.IO.Path.Combine(_dataFolder, "settings.bak"));
                 var settings = new AppSettings
                 {
                     TimerFont = _viewModel.TimerFont,
